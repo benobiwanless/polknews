@@ -6,16 +6,23 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
-  build:
+  build-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps:deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v4
-      with:
-        persist-credentials: true
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -25,14 +32,14 @@ jobs:
     - name: Run Script Engine
       run: python scrape.py
 
-    - name: Commit Live Data
-      run: |
-        git config --global user.name "GitHub Action Engine"
-        git config --global user.email "actions@github.com"
-        git add news.json
-        if git diff --staged --quiet; then
-          echo "No changes to commit"
-        else
-          git commit -m "Auto Update News File"
-          git push origin main
-        fi
+    - name: Setup GitHub Pages
+      uses: actions/configure-pages@v5
+
+    - name: Upload Website Content
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: '.' # Uploads index.html, scrape.py, and the fresh news.json together
+
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
